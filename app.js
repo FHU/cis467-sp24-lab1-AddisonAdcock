@@ -134,3 +134,97 @@ app.post("/tags", async (req, res) => {
     res.status(500).send("Error creating user");
   }
 });
+
+
+//Get All Prayers
+app.get("/prayers", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [prayers] = await connection.query("SELECT * FROM prayers");
+    connection.release();
+    res.status(200).json(prayers);
+  } catch (err) {
+    console.error("Error fetching prayers:", err.message);
+    res.status(500).send("Error fetching prayers");
+  }
+});
+
+//Get Prayer by ID
+app.get("/prayers/:id", async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [prayers] = await connection.query("SELECT * FROM prayers WHERE prayerID = ?", [req.params.id]);
+    connection.release();
+
+    if (prayers.length === 0) {
+      res.status(404).send("Prayer not found");
+    } else {
+      res.status(200).json(prayers[0]);
+    }
+  } catch (err) {
+    console.error("Error fetching prayer:", err.message);
+    res.status(500).send("Error fetching prayer");
+  }
+});
+
+//Delete Prayer By ID
+app.delete("/prayers/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [existingPrayer] = await connection.query("SELECT * FROM prayers WHERE prayerID=?", [id]);
+    if (existingPrayer.length === 0) {
+      res.status(404).send("Prayer not found");
+      return;
+    }
+    await connection.query("DELETE FROM likes WHERE prayerID=?", [id]);
+    await connection.query("DELETE FROM prayerscreators WHERE prayerID=?", [id]);
+    await connection.query("DELETE FROM prayersscriptures WHERE prayerID=?", [id]);
+    await connection.query("DELETE FROM prayerstags WHERE prayerID=?", [id]);
+    await connection.query("DELETE FROM prayers WHERE prayerID=?", [id]);
+    connection.release();
+    res.status(200).send("Prayer deleted successfully");
+  } catch (err) {
+    console.error("Error deleting prayer:", err.message);
+    res.status(500).send("Error deleting prayer");
+  }
+});
+
+//Post A Prayer
+app.post("/prayers", async (req, res) => {
+  const { body, prompt } = req.body;
+  try {
+    const connection = await pool.getConnection();
+    await connection.query("INSERT INTO prayers (body, prompt) VALUES (?, ?)", [
+      body, prompt
+    ]);
+    const [newPrayer] = await connection.query(
+      "SELECT * FROM prayers WHERE body=? AND prompt=?", [body, prompt]
+    );
+    connection.release();
+    res.status(201).json(newPrayer[0]);
+  } catch (err) {
+    console.error("Error creating prayer:", err);
+    res.status(500).send("Error creating prayer");
+  }
+});
+
+//Update A Prayer
+app.put("/prayers/:id", async (req, res) => {
+  const { body, prompt } = req.body;
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    await connection.query("UPDATE prayers SET body = ?, prompt = ? WHERE prayerID = ?", [
+      body, prompt, id
+    ]);
+    const [updatedPrayer] = await connection.query(
+      "SELECT * FROM prayers WHERE prayerID = ?", [id]
+    );
+    connection.release();
+    res.status(200).json(updatedPrayer[0]);
+  } catch (err) {
+    console.error("Error updating prayer:", err);
+    res.status(500).send("Error updating prayer");
+  }
+});
