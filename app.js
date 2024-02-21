@@ -228,3 +228,133 @@ app.put("/prayers/:id", async (req, res) => {
     res.status(500).send("Error updating prayer");
   }
 });
+
+//Likes Get
+app.get("/prayers/:id/likes", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [likes] = await connection.query(
+      "SELECT * FROM likes WHERE prayerID = ?", [id]
+    );
+    connection.release();
+    res.status(200).json(likes);
+  } catch (err) {
+    console.error("Error getting likes:", err);
+    res.status(500).send("Error getting likes");
+  }
+});
+
+//Likes Post
+app.post("/prayers/:id/likes", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req;
+  try {
+    const connection = await pool.getConnection();
+    const [existingPrayer] = await connection.query("SELECT * FROM prayers WHERE prayerID=?", [id]);
+    connection.release();
+    if (existingPrayer.length === 0) {
+      res.status(404).send("Prayer not found");
+      return;
+    }
+    const [existingLike] = await pool.query("SELECT * FROM likes WHERE userID=? AND prayerID=?", [user.id, id]);
+    if (existingLike.length > 0) {
+      res.status(409).send("Like already exists");
+      return;
+    }
+    await pool.query("INSERT INTO likes (userID, prayerID, likedTime) VALUES (?, ?, NOW())", [user.id, id]);
+    res.status(201).send("Like added successfully");
+  } catch (err) {
+    console.error("Error liking prayer:", err.message);
+    res.status(500).send("Error liking prayer");
+  }
+});
+
+//Unlikes Post
+app.delete("/prayers/:id/likes", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req;
+
+  try {
+    const [existingPrayer] = await pool.query("SELECT * FROM prayers WHERE prayerID=?", [id]);
+    if (existingPrayer.length === 0) {
+      res.status(404).send("Prayer not found");
+      return;
+    }
+    const [existingLike] = await pool.query("SELECT * FROM likes WHERE userID=? AND prayerID=?", [user.id, id]);
+    if (existingLike.length === 0) {
+      res.status(404).send("Like not found");
+      return;
+    }
+    await pool.query("DELETE FROM likes WHERE userID=? AND prayerID=?", [user.id, id]);
+    res.status(200).send("Like successfully deleted");
+  } catch (err) {
+    console.error("Error unliking prayer:", err.message);
+    res.status(500).send("Error unliking prayer");
+  }
+});
+
+// Saves Post
+app.post("/prayers/:id/saves", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req;
+  try {
+    const connection = await pool.getConnection();
+    const [existingPrayer] = await connection.query("SELECT * FROM prayers WHERE prayerID=?", [id]);
+    connection.release();
+    if (existingPrayer.length === 0) {
+      res.status(404).send("Prayer not found");
+      return;
+    }
+    const [existingSave] = await pool.query("SELECT * FROM saves WHERE userID=? AND prayerID=?", [user.id, id]);
+    if (existingSave.length > 0) {
+      res.status(409).send("Prayer already saved");
+      return;
+    }
+    await pool.query("INSERT INTO saves (userID, prayerID, savedTime) VALUES (?, ?, NOW())", [user.id, id]);
+    res.status(201).send("Prayer saved successfully");
+  } catch (err) {
+    console.error("Error saving prayer:", err.message);
+    res.status(500).send("Error saving prayer");
+  }
+});
+
+// Unsave Post
+app.delete("/prayers/:id/saves", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req;
+
+  try {
+    const [existingPrayer] = await pool.query("SELECT * FROM prayers WHERE prayerID=?", [id]);
+    if (existingPrayer.length === 0) {
+      res.status(404).send("Prayer not found");
+      return;
+    }
+    const [existingSave] = await pool.query("SELECT * FROM saves WHERE userID=? AND prayerID=?", [user.id, id]);
+    if (existingSave.length === 0) {
+      res.status(404).send("Prayer not saved");
+      return;
+    }
+    await pool.query("DELETE FROM saves WHERE userID=? AND prayerID=?", [user.id, id]);
+    res.status(200).send("Prayer successfully unsaved");
+  } catch (err) {
+    console.error("Error unsaving prayer:", err.message);
+    res.status(500).send("Error unsaving prayer");
+  }
+});
+
+//Get All Saves
+app.get("/prayers/:id/saves", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [saves] = await connection.query(
+      "SELECT * FROM saves WHERE prayerID = ?", [id]
+    );
+    connection.release();
+    res.status(200).json(saves);
+  } catch (err) {
+    console.error("Error getting saves:", err);
+    res.status(500).send("Error getting saves");
+  }
+});
