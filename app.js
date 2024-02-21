@@ -74,6 +74,47 @@ app.get("/tags/:id", async (req, res) => {
   }
 });
 
+app.put("/tags/:id", async (req, res) => {
+  const { tagDescription } = req.body;
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [existingTag] = await connection.query("SELECT * FROM tags WHERE tagID=?", [id]);
+    if (existingTag.length === 0) {
+      res.status(404).send("Tag not found");
+      return;
+    }
+    await connection.query("UPDATE tags SET tagDescription=? WHERE tagID=?", [tagDescription, id]);
+    const [updatedTag] = await connection.query("SELECT * FROM tags WHERE tagID=?", [id]);
+    connection.release();
+    res.status(200).json(updatedTag[0]);
+  } catch (err) {
+    console.error("Error updating tag:", err);
+    res.status(500).send("Error updating tag");
+  }
+});
+
+
+app.delete("/tags/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const connection = await pool.getConnection();
+    const [existingTag] = await connection.query("SELECT * FROM tags WHERE tagID=?", [id]);
+    if (existingTag.length === 0) {
+      res.status(404).send("Tag not found");
+      return;
+    }
+    await connection.query("DELETE FROM prayerstags WHERE tagID=?", [id]);
+    await connection.query("DELETE FROM tags WHERE tagID=?", [id]);
+    connection.release();
+    res.status(200).send("Tag deleted successfully");
+  } catch (err) {
+    console.error("Error deleting tag:", err.message);
+    res.status(500).send("Error deleting tag");
+  }
+});
+
+
 // Create a new user
 app.post("/tags", async (req, res) => {
   const { tagDescription } = req.body;
